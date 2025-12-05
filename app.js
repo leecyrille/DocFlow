@@ -31,6 +31,16 @@
         window.addEventListener('offline', updateOnline);
     };
     
+    // Get form configuration by type
+    DocFlowApp.getFormConfig = function(formType) {
+        return formConfigs?.formTypes?.[formType] || null;
+    };
+    
+    // Get all form configs
+    DocFlowApp.getAllFormConfigs = function() {
+        return formConfigs;
+    };
+    
     function buildSelector() {
         const el = document.getElementById('form-type-selector');
         if (!el || !formConfigs?.formTypes) return;
@@ -50,6 +60,12 @@
         document.getElementById('form-number').textContent = `Form # ${cfg.formNumber} ${cfg.revision || ''}`;
         document.getElementById('form-container').innerHTML = DocFlowFormBuilder.buildForm(cfg);
         setupFormListeners();
+        
+        // Initialize form components (auto-grow textareas, signature pads)
+        if (DocFlowFormBuilder.initForm) {
+            setTimeout(() => DocFlowFormBuilder.initForm(), 100);
+        }
+        
         const dateEl = document.getElementById(type === 'flra' ? 'assessmentDate' : 'inspectionDate');
         if (dateEl) dateEl.valueAsDate = new Date();
     }
@@ -170,7 +186,7 @@
                 const cfg = formConfigs?.formTypes?.[f.formType] || {};
                 const statusCls = f.status === 'synced' ? 'status-synced' : f.status === 'error' ? 'status-error' : 'status-pending';
                 const statusTxt = f.status === 'synced' ? '✓ Synced' : f.status === 'error' ? '⚠ Error' : '◐ Pending';
-                return `<article class="form-card"><div class="form-card-header"><h3 class="form-card-title">${esc(f.title)}</h3><span class="form-card-status ${statusCls}">${statusTxt}</span></div><div class="form-card-meta"><span class="form-type-badge">${cfg.shortName || 'Form'}</span><span>${f.lastModified ? new Date(f.lastModified).toLocaleDateString() : ''}</span></div><div class="form-card-actions"><button class="card-btn btn-edit" data-id="${f.localId}">✎</button><button class="card-btn btn-pdf" data-id="${f.localId}">📄</button><button class="card-btn btn-delete" data-id="${f.localId}">🗑</button></div></article>`;
+                return `<article class="form-card"><div class="form-card-header"><h3 class="form-card-title">${esc(f.title)}</h3><span class="form-card-status ${statusCls}">${statusTxt}</span></div><div class="form-card-meta"><span class="form-type-badge">${cfg.shortName || 'Form'}</span><span>${f.lastModified ? new Date(f.lastModified).toLocaleDateString() : ''}</span></div><div class="form-card-actions"><button class="card-btn btn-edit" data-id="${f.localId}">✎</button><button class="card-btn btn-pdf" data-id="${f.localId}">🖨️</button><button class="card-btn btn-delete" data-id="${f.localId}">🗑</button></div></article>`;
             }).join('');
             list.querySelectorAll('.btn-edit').forEach(btn => btn.addEventListener('click', () => editForm(+btn.dataset.id)));
             list.querySelectorAll('.btn-pdf').forEach(btn => btn.addEventListener('click', () => downloadPDF(+btn.dataset.id)));
@@ -193,15 +209,32 @@
             if (d.explanation) { const e = document.querySelector(`input[name="${k}_${i}_explanation"]`); if (e) e.value = d.explanation; }
         }));
         if (form.mitigations) form.mitigations.forEach((m, i) => {
-            const h = document.querySelector(`textarea[name="mitigation_hazard_${i}"]`); if (h) h.value = m.hazard || '';
-            const c = document.querySelector(`textarea[name="mitigation_control_${i}"]`); if (c) c.value = m.control || '';
+            const h = document.querySelector(`textarea[name="mitigation_hazard_${i}"]`); if (h) { h.value = m.hazard || ''; DocFlowFormBuilder.autoGrow(h); }
+            const c = document.querySelector(`textarea[name="mitigation_control_${i}"]`); if (c) { c.value = m.control || ''; DocFlowFormBuilder.autoGrow(c); }
             const n = document.querySelector(`input[name="mitigation_initial_${i}"]`); if (n) n.value = m.initial || '';
         });
         if (form.workerSignatures) form.workerSignatures.forEach((w, i) => {
             const n = document.querySelector(`input[name="worker_name_${i}"]`); if (n) n.value = w.name || '';
-            const s = document.querySelector(`input[name="worker_signature_${i}"]`); if (s) s.value = w.signature || '';
+            // Load signature image if it's a data URL
+            if (w.signature && w.signature.startsWith('data:image/')) {
+                const sigInput = document.getElementById(`worker_signature_${i}`);
+                if (sigInput) sigInput.value = w.signature;
+                if (DocFlowFormBuilder.loadSignature) {
+                    DocFlowFormBuilder.loadSignature(`worker_sig_canvas_${i}`, w.signature);
+                }
+            }
         });
-        cfg.supervisorSignatures.forEach(s => { const el = document.getElementById(s.id); if (el) el.value = form[s.id] || ''; });
+        // Load supervisor signatures
+        cfg.supervisorSignatures.forEach(s => { 
+            const el = document.getElementById(s.id); 
+            if (el) el.value = form[s.id] || '';
+            // Load signature canvas if it's an image
+            if (s.type === 'signature' && form[s.id] && form[s.id].startsWith('data:image/')) {
+                if (DocFlowFormBuilder.loadSignature) {
+                    DocFlowFormBuilder.loadSignature(`${s.id}_canvas`, form[s.id]);
+                }
+            }
+        });
         switchView('form');
         showNotification('Form loaded', 'info');
     }

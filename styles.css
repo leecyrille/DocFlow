@@ -303,8 +303,18 @@ body {
 }
 
 .form-textarea {
-    resize: vertical;
+    resize: none;
     min-height: 60px;
+    overflow: hidden;
+    line-height: 1.5;
+}
+
+/* Auto-growing textarea */
+.form-textarea.auto-grow {
+    height: auto;
+    min-height: 60px;
+    max-height: none;
+    overflow-y: hidden;
 }
 
 /* Checklists */
@@ -439,20 +449,27 @@ body {
 .worker-signatures {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.75rem;
 }
 
 .worker-row {
     display: grid;
-    grid-template-columns: 24px 1fr 1fr;
+    grid-template-columns: 24px 1fr 1.5fr;
     gap: 0.5rem;
-    align-items: center;
+    align-items: start;
     font-size: 0.8125rem;
 }
 
 .worker-row span {
     color: var(--text-light);
     font-size: 0.75rem;
+    padding-top: 0.5rem;
+}
+
+.worker-signature-pad {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
 /* Signature Grid */
@@ -475,6 +492,70 @@ body {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     border-bottom: 2px solid var(--text-light);
+}
+
+/* Signature Pad Styles */
+.signature-pad-container {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #fafafa;
+    position: relative;
+    overflow: hidden;
+}
+
+.signature-canvas {
+    width: 100%;
+    height: 80px;
+    display: block;
+    cursor: crosshair;
+    touch-action: none;
+    background: linear-gradient(transparent 79px, var(--text-light) 79px);
+}
+
+.signature-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.25rem;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+}
+
+.signature-controls button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    color: var(--text);
+}
+
+.signature-controls button:hover {
+    background: var(--bg);
+}
+
+.signature-controls .btn-clear {
+    color: var(--error);
+    border-color: var(--error);
+}
+
+.signature-data {
+    display: none;
+}
+
+/* Signature image preview */
+.signature-image-preview {
+    max-width: 100%;
+    max-height: 80px;
+    display: block;
+}
+
+/* Worker signature with canvas */
+.worker-signature-pad {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
 /* Form Actions */

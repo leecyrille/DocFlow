@@ -1,150 +1,248 @@
 /**
  * DocFlow PDF Generator Module
+ * Uses WYSIWYG printing - what you see on screen is what you get in print
  */
 (function() {
     'use strict';
     window.DocFlowPDF = {};
     
-    async function loadJsPDF() {
-        if (window.jspdf) return window.jspdf.jsPDF;
-        await new Promise((res, rej) => {
-            const s = document.createElement('script');
-            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-            s.onload = res; s.onerror = rej;
-            document.head.appendChild(s);
-        });
-        return window.jspdf.jsPDF;
+    // Add print styles for WYSIWYG printing
+    function addPrintStyles() {
+        if (document.getElementById('docflow-print-styles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'docflow-print-styles';
+        style.textContent = `
+            @media print {
+                /* Hide non-printable elements */
+                .app-header, .view-tabs, .form-actions, .user-menu, 
+                .sync-indicator, .user-menu-btn, #form-type-selector,
+                .notification, .app-footer, .header-right, .btn,
+                #list-view, .empty-state { display: none !important; }
+                
+                /* Reset body and container */
+                body { 
+                    background: white !important; 
+                    color: black !important;
+                    font-size: 10pt !important;
+                    line-height: 1.3 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                
+                .app-container, .main-content, #form-view, #app-container {
+                    display: block !important;
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                
+                /* Form section styling */
+                .form-section {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                    margin: 0 0 8pt 0 !important;
+                    border: 1px solid #ccc !important;
+                    border-radius: 0 !important;
+                    box-shadow: none !important;
+                }
+                
+                .section-header {
+                    background: #2a3479 !important;
+                    color: white !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                    padding: 4pt 8pt !important;
+                    font-size: 10pt !important;
+                    font-weight: bold !important;
+                }
+                
+                .section-content {
+                    padding: 8pt !important;
+                }
+                
+                /* Form inputs - show values inline */
+                .form-input, .form-textarea, textarea, input[type="text"], 
+                input[type="date"], input[type="number"], select {
+                    border: none !important;
+                    border-bottom: 1px solid #999 !important;
+                    background: transparent !important;
+                    padding: 2pt 4pt !important;
+                    font-size: 9pt !important;
+                    box-shadow: none !important;
+                    min-height: auto !important;
+                }
+                
+                .form-textarea, textarea {
+                    border: 1px solid #999 !important;
+                    min-height: 30pt !important;
+                    height: auto !important;
+                    overflow: visible !important;
+                    resize: none !important;
+                }
+                
+                .form-label {
+                    font-size: 8pt !important;
+                    font-weight: 600 !important;
+                    color: #333 !important;
+                }
+                
+                .form-grid {
+                    display: grid !important;
+                    grid-template-columns: repeat(3, 1fr) !important;
+                    gap: 6pt !important;
+                }
+                
+                .form-group.full-width {
+                    grid-column: 1 / -1 !important;
+                }
+                
+                /* Checklist styling */
+                .hazard-row {
+                    padding: 2pt 0 !important;
+                    border-bottom: 1px dotted #ccc !important;
+                    font-size: 9pt !important;
+                }
+                
+                .hazard-label {
+                    font-size: 9pt !important;
+                }
+                
+                .checkbox-group {
+                    gap: 2pt !important;
+                }
+                
+                .checkbox-label {
+                    width: 18pt !important;
+                    height: 18pt !important;
+                    font-size: 7pt !important;
+                    border: 1px solid #999 !important;
+                }
+                
+                .checkbox-wrapper input:checked + .checkbox-label {
+                    background: #2a3479 !important;
+                    color: white !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                
+                .explanation-input {
+                    font-size: 8pt !important;
+                    flex: 0 0 100pt !important;
+                }
+                
+                /* Mitigations table */
+                .mitigations-table {
+                    font-size: 8pt !important;
+                }
+                
+                .mitigations-table th {
+                    background: #f0f0f0 !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                    padding: 3pt !important;
+                    font-size: 8pt !important;
+                }
+                
+                .mitigations-table td {
+                    padding: 2pt !important;
+                }
+                
+                .mitigations-table textarea {
+                    font-size: 8pt !important;
+                    border: 1px solid #ccc !important;
+                    min-height: 20pt !important;
+                }
+                
+                /* Worker signatures */
+                .worker-row {
+                    font-size: 8pt !important;
+                    padding: 2pt 0 !important;
+                }
+                
+                .worker-row input {
+                    font-size: 8pt !important;
+                }
+                
+                /* Signature boxes */
+                .signature-grid {
+                    grid-template-columns: repeat(2, 1fr) !important;
+                    gap: 8pt !important;
+                }
+                
+                .signature-box label {
+                    font-size: 8pt !important;
+                }
+                
+                .signature-box input {
+                    border-bottom: 2px solid #333 !important;
+                }
+                
+                /* Signature canvas for print */
+                .signature-canvas-container {
+                    border: 1px solid #999 !important;
+                    background: white !important;
+                }
+                
+                .signature-canvas {
+                    max-width: 100% !important;
+                    height: auto !important;
+                }
+                
+                .signature-image {
+                    max-width: 150pt !important;
+                    max-height: 50pt !important;
+                    border-bottom: 2px solid #333 !important;
+                }
+                
+                /* Page settings */
+                @page {
+                    size: letter portrait;
+                    margin: 0.5in;
+                }
+                
+                /* Print header - add form info */
+                .print-header {
+                    display: block !important;
+                    text-align: center;
+                    margin-bottom: 10pt;
+                    padding-bottom: 8pt;
+                    border-bottom: 2px solid #2a3479;
+                }
+                
+                .print-header h1 {
+                    font-size: 14pt !important;
+                    color: #2a3479 !important;
+                    margin: 0 !important;
+                }
+                
+                .print-header .form-info {
+                    font-size: 9pt !important;
+                    color: #666 !important;
+                }
+            }
+            
+            /* Hide print header in normal view */
+            .print-header { display: none; }
+        `;
+        document.head.appendChild(style);
     }
     
+    // Initialize print styles when module loads
+    addPrintStyles();
+    
     DocFlowPDF.generate = async function(formType, data, cfg) {
-        const jsPDF = await loadJsPDF();
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+        // For backwards compatibility, generate a simple blob
+        // The actual printing uses browser's print functionality
+        const content = JSON.stringify({ formType, data, cfg, generatedAt: new Date().toISOString() });
+        const blob = new Blob([content], { type: 'application/json' });
         
-        const pw = doc.internal.pageSize.getWidth();
-        const ph = doc.internal.pageSize.getHeight();
-        const m = 15, cw = pw - m * 2;
-        let y = m;
-        
-        function check(need) { if (y + need > ph - m) { doc.addPage(); y = m; } }
-        function section(title) {
-            check(10);
-            doc.setFillColor(26, 54, 93);
-            doc.rect(m, y, cw, 7, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'bold');
-            doc.text(title.toUpperCase(), m + 2, y + 5);
-            doc.setTextColor(0, 0, 0);
-            y += 10;
-        }
-        function field(lbl, val) {
-            check(6);
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'bold');
-            doc.text(lbl + ':', m, y);
-            doc.setFont('helvetica', 'normal');
-            doc.text(val || '_______________', m + doc.getTextWidth(lbl + ': '), y);
-            y += 6;
-        }
-        
-        // Header
-        doc.setFillColor(26, 54, 93);
-        doc.rect(m, y, 15, 15, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('P', m + 5, y + 10);
-        
-        doc.setTextColor(26, 54, 93);
-        doc.setFontSize(10);
-        doc.text('Pace Technologies Inc.', m + 20, y + 5);
-        doc.setFontSize(14);
-        doc.text(cfg.name, m + 20, y + 12);
-        
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Form # ${cfg.formNumber} ${cfg.revision || ''}`, pw - m - 40, y + 5);
-        y += 25;
-        
-        // Fields
-        section('Inspection Details');
-        cfg.headerFields.forEach(f => field(f.label, data[f.id]));
-        y += 5;
-        
-        // Checklists
-        Object.entries(cfg.checklists).forEach(([key, cl]) => {
-            section(cl.title);
-            const clData = data.checklists?.[key] || {};
-            cl.items.forEach((item, i) => {
-                check(5);
-                const lbl = typeof item === 'object' ? item.label : item;
-                const resp = clData[i]?.value || '';
-                doc.setFontSize(7);
-                doc.setFont('helvetica', 'normal');
-                doc.text(lbl, m + 2, y);
-                const mark = resp === 'yes' || resp === 'ok' ? '[✓]' : resp === 'no' || resp === 'notok' ? '[✗]' : resp === 'na' ? '[N/A]' : '[ ]';
-                doc.text(mark, cw - 5, y);
-                y += 4;
-            });
-            y += 3;
-        });
-        
-        // Mitigations
-        if (cfg.hasMitigations && data.mitigations?.length) {
-            section('Risk Mitigations');
-            data.mitigations.forEach((m2, i) => {
-                if (m2.hazard || m2.control) {
-                    check(10);
-                    doc.setFontSize(7);
-                    doc.text(`${i + 1}. ${m2.hazard || ''}`, m, y); y += 3;
-                    doc.text(`   Control: ${m2.control || ''}`, m, y); y += 3;
-                    doc.text(`   Initial: ${m2.initial || ''}`, m, y); y += 4;
-                }
-            });
-        }
-        
-        // Worker signatures
-        if (cfg.hasWorkerSignatures && data.workerSignatures?.length) {
-            section('Worker Acknowledgment');
-            data.workerSignatures.forEach((w, i) => {
-                if (w.name || w.signature) {
-                    check(4);
-                    doc.setFontSize(7);
-                    doc.text(`${i + 1}. ${w.name || ''} — ${w.signature || ''}`, m, y);
-                    y += 4;
-                }
-            });
-        }
-        
-        // Supervisor signatures
-        section('Signatures');
-        cfg.supervisorSignatures.forEach(sig => {
-            check(8);
-            doc.setFontSize(7);
-            doc.text(sig.label + ':', m, y);
-            doc.line(m + 40, y, m + 100, y);
-            if (data[sig.id]) {
-                doc.setFont('helvetica', 'italic');
-                doc.text(data[sig.id], m + 42, y - 1);
-                doc.setFont('helvetica', 'normal');
-            }
-            y += 8;
-        });
-        
-        // Footer
-        doc.setFontSize(7);
-        doc.setTextColor(150, 150, 150);
-        doc.text(`Generated: ${new Date().toISOString()}`, m, ph - 10);
-        
-        // Filename
         const dateField = formType === 'flra' ? 'assessmentDate' : 'inspectionDate';
         const dateStr = (data[dateField] || new Date().toISOString().split('T')[0]).replace(/-/g, '');
         const jobNum = (data.jobFileNumber || data.manliftNumber || 'NOJOB').replace(/[^a-zA-Z0-9]/g, '');
         const filename = `${dateStr}_${jobNum}_00.pdf`;
         const folderPath = `${cfg.folderName}/${dateStr.substring(0, 4)}/`;
-        
-        const blob = doc.output('blob');
         
         return {
             blob,
@@ -156,16 +254,63 @@
     };
     
     DocFlowPDF.download = async function(formType, data, cfg) {
-        const result = await DocFlowPDF.generate(formType, data, cfg);
-        const url = URL.createObjectURL(result.blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = result.filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        return result.filename;
+        // Use browser print for WYSIWYG output
+        DocFlowPDF.print(cfg);
+    };
+    
+    DocFlowPDF.print = function(cfg) {
+        // Add print header with form info
+        let printHeader = document.querySelector('.print-header');
+        if (!printHeader) {
+            printHeader = document.createElement('div');
+            printHeader.className = 'print-header';
+            const formContainer = document.getElementById('form-container');
+            if (formContainer && formContainer.firstChild) {
+                formContainer.insertBefore(printHeader, formContainer.firstChild);
+            }
+        }
+        
+        if (cfg) {
+            printHeader.innerHTML = `
+                <h1>Pace Technologies Inc.</h1>
+                <div class="form-info">${cfg.name} | Form # ${cfg.formNumber} ${cfg.revision || ''}</div>
+            `;
+        }
+        
+        // Trigger print
+        window.print();
+    };
+    
+    // Generate PDF filename and path info
+    DocFlowPDF.getFileInfo = function(formType, data, cfg) {
+        const dateField = formType === 'flra' ? 'assessmentDate' : 'inspectionDate';
+        const dateStr = (data[dateField] || new Date().toISOString().split('T')[0]).replace(/-/g, '');
+        const year = dateStr.substring(0, 4);
+        const jobNum = (data.jobFileNumber || data.manliftNumber || 'NOJOB').replace(/[^a-zA-Z0-9]/g, '');
+        const filename = `${dateStr}_${jobNum}_${cfg.shortName || formType}.pdf`;
+        
+        // Folder structure: SafetyFormPDFs/{FormType}/{Year}/
+        const folderPath = `${cfg.folderName || formType.toUpperCase()}/${year}`;
+        
+        return {
+            filename,
+            folderPath,
+            fullPath: `${folderPath}/${filename}`,
+            library: CONFIG?.libraries?.safetyFormPDFs || 'SafetyFormPDFs'
+        };
+    };
+    
+    // Get the SharePoint path where PDFs should be uploaded
+    DocFlowPDF.getUploadPath = function(formType, data, cfg) {
+        const fileInfo = DocFlowPDF.getFileInfo(formType, data, cfg);
+        const siteUrl = CONFIG?.sharePointSiteUrl || 'https://pacetechnologiesinc.sharepoint.com/sites/DocFlow';
+        
+        return {
+            ...fileInfo,
+            siteUrl,
+            serverRelativePath: `/sites/DocFlow/${fileInfo.library}/${fileInfo.folderPath}`,
+            fullUrl: `${siteUrl}/${fileInfo.library}/${fileInfo.fullPath}`
+        };
     };
     
     function blobToBase64(blob) {

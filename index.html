@@ -32,7 +32,7 @@
             padding: 12px 16px;
             font-size: 2.5rem; font-weight: bold; color: var(--primary);
         }
-        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: rgb(0, 0, 0); }
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: white; }
         .subtitle { opacity: 0.8; font-size: 0.875rem; margin-bottom: 2rem; }
         .status { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
         .status-text { font-size: 0.875rem; margin-bottom: 0.5rem; }
@@ -90,6 +90,16 @@
             
             // SharePoint site URL
             sharePointSiteUrl: 'https://pacetechnologiesinc.sharepoint.com/sites/DocFlow',
+            
+            // SharePoint Document Libraries
+            libraries: {
+                formTemplates: 'FormTemplates',      // Form template JSON files
+                appResources: 'AppResources',        // App JS, CSS resources
+                safetyFormPDFs: 'SafetyFormPDFs'     // Generated PDF output
+            },
+            
+            // Legacy support (for backwards compatibility)
+            formTemplatesLibrary: 'FormTemplates',
             
             // API endpoint (your deployed serverless function)
             apiEndpoint: 'https://YOUR_VERCEL_URL.vercel.app/api',
@@ -201,11 +211,10 @@
         
         async function loadAppFromSharePoint() {
             updateProgress(10, 'Loading resources...');
-            // Load resources from GitHub Pages (same origin) instead of SharePoint
             
+            // Load app resources from GitHub Pages (same origin)
             const resources = [
                 { name: 'styles.css', type: 'css' },
-                { name: 'formConfigs.json', type: 'json' },
                 { name: 'indexedDB.js', type: 'js' },
                 { name: 'sync.js', type: 'js' },
                 { name: 'pdfGenerator.js', type: 'js' },
@@ -215,7 +224,7 @@
             
             const loaded = {};
             let progress = 10;
-            const step = 80 / resources.length;
+            const step = 50 / resources.length;
             
             for (const res of resources) {
                 updateProgress(progress, `Loading ${res.name}...`);
@@ -232,6 +241,23 @@
                 progress += step;
             }
             
+            // Load form templates from SharePoint
+            updateProgress(70, 'Loading form templates from SharePoint...');
+            try {
+                const spToken = await getSharePointToken();
+                const formConfigs = await loadFormTemplatesFromSharePoint(spToken);
+                loaded['formConfigs'] = { content: formConfigs, type: 'object' };
+                await cacheResource('formConfigs.json', JSON.stringify(formConfigs));
+            } catch (e) {
+                console.warn('Failed to load forms from SharePoint, trying cache...', e);
+                const cached = await getCachedResource('formConfigs.json');
+                if (cached) { 
+                    loaded['formConfigs'] = { content: JSON.parse(cached), type: 'object' }; 
+                } else { 
+                    throw new Error('Cannot load form templates: ' + e.message); 
+                }
+            }
+            
             updateProgress(95, 'Starting application...');
             await initApp(loaded);
             updateProgress(100, 'Ready!');
@@ -241,14 +267,59 @@
             }, 300);
         }
         
-        async function fetchSharePointFile(token, filename) {
-            // Use SharePoint REST API directly instead of Graph API
-            const spRestUrl = `${CONFIG.sharePointSiteUrl}/_api/web/GetFolderByServerRelativeUrl('/sites/DocFlow/AppResources')/Files('${filename}')/$value`;
+        async function loadFormTemplatesFromSharePoint(token) {
+            // First, load the index.json to get list of form templates
+            const indexUrl = `${CONFIG.sharePointSiteUrl}/_api/web/GetFolderByServerRelativeUrl('/sites/DocFlow/${CONFIG.formTemplatesLibrary}')/Files('index.json')/$value`;
+            
+            const indexResponse = await fetch(indexUrl, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (!indexResponse.ok) {
+                throw new Error(`Failed to load form index: ${indexResponse.status}`);
+            }
+            
+            const index = await indexResponse.json();
+            
+            // Load each form template
+            const formTypes = {};
+            for (const form of index.forms) {
+                updateProgress(75, `Loading ${form.name}...`);
+                const formUrl = `${CONFIG.sharePointSiteUrl}/_api/web/GetFolderByServerRelativeUrl('/sites/DocFlow/${CONFIG.formTemplatesLibrary}')/Files('${form.filename}')/$value`;
+                
+                const formResponse = await fetch(formUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (formResponse.ok) {
+                    const formConfig = await formResponse.json();
+                    formTypes[form.id] = formConfig;
+                } else {
+                    console.warn(`Failed to load form template: ${form.filename}`);
+                }
+            }
+            
+            return {
+                version: index.version,
+                lastUpdated: index.lastUpdated,
+                formTypes
+            };
+        }
+        
+        async function fetchSharePointFile(token, folderPath, filename) {
+            // Use SharePoint REST API to fetch a file
+            const spRestUrl = `${CONFIG.sharePointSiteUrl}/_api/web/GetFolderByServerRelativeUrl('/sites/DocFlow/${folderPath}')/Files('${filename}')/$value`;
             
             const response = await fetch(spRestUrl, { 
                 headers: { 
                     'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json;odata=verbose'
+                    'Accept': 'application/json'
                 } 
             });
             if (!response.ok) throw new Error(`${response.status} loading ${filename}`);
@@ -272,10 +343,10 @@
                 document.head.appendChild(style);
             }
             
-            // Parse configs
+            // Get form configs (already parsed if loaded from SharePoint)
             let formConfigs = {};
-            if (resources['formConfigs.json']) {
-                formConfigs = JSON.parse(resources['formConfigs.json'].content);
+            if (resources['formConfigs']) {
+                formConfigs = resources['formConfigs'].content;
             }
             
             // Create shell
@@ -353,9 +424,12 @@
         }
         async function loadFromCache() {
             updateProgress(10, 'Loading offline...');
-            const names = ['styles.css','formConfigs.json','indexedDB.js','sync.js','pdfGenerator.js','formBuilder.js','app.js'];
+            const names = ['styles.css','indexedDB.js','sync.js','pdfGenerator.js','formBuilder.js','app.js'];
             const loaded = {};
             for (const n of names) { const c = await getCachedResource(n); if (c) loaded[n] = { content: c, type: n.split('.').pop() }; }
+            // Load cached form configs
+            const cachedConfigs = await getCachedResource('formConfigs.json');
+            if (cachedConfigs) { loaded['formConfigs'] = { content: JSON.parse(cachedConfigs), type: 'object' }; }
             if (Object.keys(loaded).length < 4) { showError('Cannot load offline. Connect for first use.'); return; }
             await initApp(loaded);
             document.getElementById('loader-container').style.display = 'none';
