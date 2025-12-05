@@ -1,0 +1,11 @@
+Display name
+DocFlow
+
+Application (client) ID
+adaf6778-0fc3-4f9d-864f-7da41131c905
+
+Object ID
+b89903e3-f29c-4dcb-9964-f4f8af402677
+
+Directory (tenant) ID
+d68a5030-772a-4ecd-ab4d-4cf2c1a5118f
