@@ -12,11 +12,11 @@
     <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
     <title>DocFlow | Pace Technologies</title>
     <style>
-        :root { --primary: #1a365d; --accent: #fbbf24; }
+        :root { --primary: #2a3479; --accent: #669a41; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, var(--primary) 0%, #0d1f3c 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, #1a2050 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -26,7 +26,7 @@
         .loader-container { text-align: center; padding: 2rem; max-width: 400px; }
         .logo {
             width: 80px; height: 80px; margin: 0 auto 1.5rem;
-            background: var(--accent); border-radius: 16px;
+            background: white; border-radius: 16px;
             display: flex; align-items: center; justify-content: center;
             font-size: 2.5rem; font-weight: bold; color: var(--primary);
         }
@@ -35,17 +35,17 @@
         .status { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
         .status-text { font-size: 0.875rem; margin-bottom: 0.5rem; }
         .progress-bar { height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; overflow: hidden; }
-        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s ease; }
+        .progress-fill { height: 100%; background: #669a41; width: 0%; transition: width 0.3s ease; }
         .login-btn {
-            display: inline-block; background: var(--accent); color: var(--primary);
+            display: inline-block; background: #669a41; color: white;
             padding: 0.875rem 2rem; border-radius: 8px; font-weight: 600;
             text-decoration: none; border: none; cursor: pointer; font-size: 1rem;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-        .login-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(251,191,36,0.4); }
+        .login-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102,154,65,0.4); }
         .login-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
         .error-message { background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 8px; margin-top: 1rem; display: none; }
-        .offline-notice { background: rgba(251,191,36,0.2); border: 1px solid var(--accent); padding: 0.75rem; border-radius: 8px; margin-top: 1rem; font-size: 0.875rem; }
+        .offline-notice { background: rgba(102,154,65,0.2); border: 1px solid #669a41; padding: 0.75rem; border-radius: 8px; margin-top: 1rem; font-size: 0.875rem; }
         #app-container { display: none; width: 100%; }
         .hidden { display: none !important; }
     </style>

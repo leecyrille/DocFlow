@@ -85,8 +85,19 @@
     
     function buildChecklist(key, cl) {
         const isOk = cl.responseType === 'ok-notok-na';
-        const labels = isOk ? ['OK','X','N/A'] : ['N/A','Y','N'];
-        const vals = isOk ? ['ok','notok','na'] : ['na','yes','no'];
+        const isYesNa = cl.responseType === 'yes-na';
+        let labels, vals;
+        
+        if (isOk) {
+            labels = ['OK','X','N/A'];
+            vals = ['ok','notok','na'];
+        } else if (isYesNa) {
+            labels = ['Yes','N/A'];
+            vals = ['yes','na'];
+        } else {
+            labels = ['N/A','Y','N'];
+            vals = ['na','yes','no'];
+        }
         
         return cl.items.map((item, i) => {
             const lbl = typeof item === 'object' ? item.label : item;
@@ -96,7 +107,7 @@
             let row = `<div class="hazard-row">
                 <label class="hazard-label">${lbl}</label>
                 <div class="checkbox-group">${vals.map((v,j)=>`<div class="checkbox-wrapper"><input type="radio" id="${id}_${v}" name="${id}" value="${v}"><label class="checkbox-label" for="${id}_${v}">${labels[j]}</label></div>`).join('')}</div>
-                ${cl.hasExplanation?`<input type="text" name="${id}_explanation" class="form-input explanation-input" placeholder="Note">`:''}
+                ${cl.hasExplanation?`<input type="text" name="${id}_explanation" class="form-input explanation-input" placeholder="Comments...">`:''}
             </div>`;
             
             if (hasText) row += `<div class="hazard-row other-row"><input type="text" name="${id}_text" class="form-input" placeholder="Specify..."></div>`;

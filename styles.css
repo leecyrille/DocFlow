@@ -1,10 +1,10 @@
 /* DocFlow - Pace Technologies Safety Forms */
 :root {
-    --primary: #1a365d;
-    --primary-light: #2d4a7c;
-    --accent: #fbbf24;
-    --accent-hover: #f59e0b;
-    --success: #10b981;
+    --primary: #2a3479;
+    --primary-light: #3d4a8c;
+    --accent: #669a41;
+    --accent-hover: #5a8a38;
+    --success: #669a41;
     --error: #ef4444;
     --warning: #f59e0b;
     --bg: #f8fafc;
@@ -472,11 +472,11 @@ body {
 }
 
 .btn-primary {
-    background: var(--primary);
+    background: var(--accent);
     color: white;
 }
 
-.btn-primary:hover { background: var(--primary-light); }
+.btn-primary:hover { background: var(--accent-hover); }
 
 .btn-secondary {
     background: white;
@@ -488,7 +488,7 @@ body {
 
 .btn-sync {
     background: var(--accent);
-    color: var(--primary);
+    color: white;
     padding: 0.5rem 1rem;
     font-size: 0.8125rem;
 }
