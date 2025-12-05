@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Pace Technologies Inc. DocFlow - Safety Forms">
+    <meta name="theme-color" content="#1a365d">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="DocFlow">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+    <title>DocFlow | Pace Technologies</title>
+    <style>
+        :root { --primary: #1a365d; --accent: #fbbf24; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, #0d1f3c 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        .loader-container { text-align: center; padding: 2rem; max-width: 400px; }
+        .logo {
+            width: 80px; height: 80px; margin: 0 auto 1.5rem;
+            background: var(--accent); border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; font-weight: bold; color: var(--primary);
+        }
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .subtitle { opacity: 0.8; font-size: 0.875rem; margin-bottom: 2rem; }
+        .status { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+        .status-text { font-size: 0.875rem; margin-bottom: 0.5rem; }
+        .progress-bar { height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s ease; }
+        .login-btn {
+            display: inline-block; background: var(--accent); color: var(--primary);
+            padding: 0.875rem 2rem; border-radius: 8px; font-weight: 600;
+            text-decoration: none; border: none; cursor: pointer; font-size: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .login-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(251,191,36,0.4); }
+        .login-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .error-message { background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 8px; margin-top: 1rem; display: none; }
+        .offline-notice { background: rgba(251,191,36,0.2); border: 1px solid var(--accent); padding: 0.75rem; border-radius: 8px; margin-top: 1rem; font-size: 0.875rem; }
+        #app-container { display: none; width: 100%; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="loader-container" class="loader-container">
+        <div class="logo">P</div>
+        <h1>DocFlow</h1>
+        <p class="subtitle">Pace Technologies Safety Forms</p>
+        
+        <div id="login-section">
+            <p style="margin-bottom: 1.5rem; opacity: 0.9;">Sign in with your Pace Technologies account to access safety forms.</p>
+            <button id="login-btn" class="login-btn" onclick="startLogin()">Sign In with Microsoft</button>
+        </div>
+        
+        <div id="loading-section" class="hidden">
+            <div class="status">
+                <p class="status-text" id="status-text">Authenticating...</p>
+                <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+            </div>
+        </div>
+        
+        <div id="offline-notice" class="offline-notice hidden">
+            <strong>📴 Offline Mode</strong><br>Working offline. Forms will sync when connected.
+        </div>
+        
+        <div id="error-message" class="error-message"></div>
+    </div>
+    
+    <div id="app-container"></div>
+
+    <script>
+        // ============================================
+        // CONFIGURATION - UPDATE THESE VALUES
+        // ============================================
+        const CONFIG = {
+            // Azure AD App Registration - GET THESE FROM AZURE PORTAL
+            clientId: 'YOUR_CLIENT_ID_HERE',
+            tenantId: 'YOUR_TENANT_ID_HERE',
+            
+            // SharePoint site URL
+            sharePointSiteUrl: 'https://YOUR_TENANT.sharepoint.com/sites/DocFlow',
+            
+            // API endpoint (your deployed serverless function)
+            apiEndpoint: 'https://YOUR_VERCEL_URL.vercel.app/api',
+            
+            appVersion: '1.0.0'
+        };
+        // ============================================
+        
+        const msalConfig = {
+            auth: {
+                clientId: CONFIG.clientId,
+                authority: `https://login.microsoftonline.com/${CONFIG.tenantId}`,
+                redirectUri: window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/'),
+                postLogoutRedirectUri: window.location.origin
+            },
+            cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+        };
+        
+        const loginScopes = { scopes: ['User.Read', 'Sites.Read.All', 'Files.Read.All'] };
+        
+        let msalInstance = null, currentAccount = null, accessToken = null;
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            updateOnlineStatus();
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            await loadMSAL();
+            await handleRedirectResponse();
+            await checkExistingSession();
+        });
+        
+        async function loadMSAL() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js';
+                script.onload = () => { msalInstance = new msal.PublicClientApplication(msalConfig); resolve(); };
+                script.onerror = () => { showError('Failed to load authentication library.'); reject(); };
+                document.head.appendChild(script);
+            });
+        }
+        
+        async function startLogin() {
+            const btn = document.getElementById('login-btn');
+            btn.disabled = true; btn.textContent = 'Redirecting...';
+            try { await msalInstance.loginRedirect(loginScopes); }
+            catch (e) { showError('Login failed.'); btn.disabled = false; btn.textContent = 'Sign In with Microsoft'; }
+        }
+        
+        async function handleRedirectResponse() {
+            try {
+                const response = await msalInstance.handleRedirectPromise();
+                if (response) { currentAccount = response.account; accessToken = response.accessToken; await onAuthSuccess(); }
+            } catch (e) { showError('Authentication failed.'); }
+        }
+        
+        async function checkExistingSession() {
+            const accounts = msalInstance.getAllAccounts();
+            if (accounts.length > 0) {
+                currentAccount = accounts[0];
+                try {
+                    const tokenResponse = await msalInstance.acquireTokenSilent({ ...loginScopes, account: currentAccount });
+                    accessToken = tokenResponse.accessToken;
+                    await onAuthSuccess();
+                } catch (e) { console.log('Need interactive login'); }
+            }
+        }
+        
+        async function onAuthSuccess() {
+            showLoadingState();
+            try { await loadAppFromSharePoint(); }
+            catch (e) {
+                console.error('Load error:', e);
+                if (!navigator.onLine) { await loadFromCache(); }
+                else { showError('Failed to load application: ' + e.message); }
+            }
+        }
+        
+        async function getAccessToken() {
+            if (!currentAccount) throw new Error('No user');
+            try {
+                const response = await msalInstance.acquireTokenSilent({ ...loginScopes, account: currentAccount });
+                return response.accessToken;
+            } catch (e) { await msalInstance.acquireTokenRedirect(loginScopes); }
+        }
+        
+        async function loadAppFromSharePoint() {
+            updateProgress(10, 'Connecting to SharePoint...');
+            const token = await getAccessToken();
+            
+            const resources = [
+                { name: 'styles.css', type: 'css' },
+                { name: 'formConfigs.json', type: 'json' },
+                { name: 'indexedDB.js', type: 'js' },
+                { name: 'sync.js', type: 'js' },
+                { name: 'pdfGenerator.js', type: 'js' },
+                { name: 'formBuilder.js', type: 'js' },
+                { name: 'app.js', type: 'js' }
+            ];
+            
+            const loaded = {};
+            let progress = 10;
+            const step = 80 / resources.length;
+            
+            for (const res of resources) {
+                updateProgress(progress, `Loading ${res.name}...`);
+                try {
+                    const content = await fetchSharePointFile(token, res.name);
+                    loaded[res.name] = { content, type: res.type };
+                    await cacheResource(res.name, content);
+                } catch (e) {
+                    console.warn(`Failed to load ${res.name}, trying cache...`);
+                    const cached = await getCachedResource(res.name);
+                    if (cached) { loaded[res.name] = { content: cached, type: res.type }; }
+                    else { throw new Error(`Cannot load ${res.name}`); }
+                }
+                progress += step;
+            }
+            
+            updateProgress(95, 'Starting application...');
+            await initApp(loaded);
+            updateProgress(100, 'Ready!');
+            setTimeout(() => {
+                document.getElementById('loader-container').style.display = 'none';
+                document.getElementById('app-container').style.display = 'block';
+            }, 300);
+        }
+        
+        async function fetchSharePointFile(token, filename) {
+            const hostname = new URL(CONFIG.sharePointSiteUrl).hostname;
+            const sitePath = new URL(CONFIG.sharePointSiteUrl).pathname;
+            const graphUrl = `https://graph.microsoft.com/v1.0/sites/${hostname}:${sitePath}:/drive/root:/AppResources/${filename}:/content`;
+            
+            const response = await fetch(graphUrl, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (!response.ok) throw new Error(`${response.status} loading ${filename}`);
+            return await response.text();
+        }
+        
+        async function initApp(resources) {
+            const container = document.getElementById('app-container');
+            
+            // Inject CSS
+            if (resources['styles.css']) {
+                const style = document.createElement('style');
+                style.textContent = resources['styles.css'].content;
+                document.head.appendChild(style);
+            }
+            
+            // Parse configs
+            let formConfigs = {};
+            if (resources['formConfigs.json']) {
+                formConfigs = JSON.parse(resources['formConfigs.json'].content);
+            }
+            
+            // Create shell
+            container.innerHTML = getAppShell();
+            
+            // Inject JS in order
+            const jsOrder = ['indexedDB.js', 'sync.js', 'pdfGenerator.js', 'formBuilder.js', 'app.js'];
+            for (const js of jsOrder) {
+                if (resources[js]) {
+                    const script = document.createElement('script');
+                    script.textContent = resources[js].content;
+                    document.body.appendChild(script);
+                }
+            }
+            
+            // Initialize
+            if (window.DocFlowApp?.initialize) {
+                await window.DocFlowApp.initialize({
+                    formConfigs,
+                    apiEndpoint: CONFIG.apiEndpoint,
+                    accessToken,
+                    user: currentAccount,
+                    getAccessToken
+                });
+            }
+        }
+        
+        function getAppShell() {
+            return `
+            <div id="app" class="app-container">
+                <header class="app-header">
+                    <div class="header-content">
+                        <div class="logo"><span class="logo-icon">P</span><span class="logo-text">Pace Technologies</span></div>
+                        <div class="header-right">
+                            <div id="sync-status" class="sync-indicator"><span class="status-icon">○</span><span class="status-text">Offline</span></div>
+                            <button id="user-menu-btn" class="user-menu-btn" onclick="toggleUserMenu()"><span id="user-initials">U</span></button>
+                        </div>
+                    </div>
+                    <h1 class="page-title" id="page-title">Safety Forms</h1>
+                    <p class="form-number" id="form-number"></p>
+                </header>
+                <div id="user-menu" class="user-menu hidden">
+                    <p id="user-name"></p><p id="user-email" style="font-size:0.75rem;opacity:0.7"></p>
+                    <hr style="margin:0.5rem 0;opacity:0.2"><button onclick="logout()">Sign Out</button>
+                </div>
+                <main class="main-content">
+                    <nav class="view-tabs" role="tablist">
+                        <button class="tab-btn active" data-view="form" role="tab"><span class="tab-icon">+</span> New Form</button>
+                        <button class="tab-btn" data-view="list" role="tab"><span class="tab-icon">☰</span> Saved <span id="pending-badge" class="badge hidden">0</span></button>
+                    </nav>
+                    <section id="form-view" class="view active" role="tabpanel">
+                        <div id="form-type-selector" class="form-section"></div>
+                        <div id="form-container"></div>
+                    </section>
+                    <section id="list-view" class="view" role="tabpanel" hidden>
+                        <div class="list-header">
+                            <div class="list-stats"><span id="total-count">0 forms</span> • <span id="pending-count">0 pending</span></div>
+                            <button id="sync-btn" class="btn btn-sync">↻ Sync</button>
+                        </div>
+                        <div id="forms-list" class="forms-list"></div>
+                        <div id="empty-state" class="empty-state hidden"><div class="empty-icon">📋</div><h3>No Forms Yet</h3><p>Create your first safety form.</p></div>
+                    </section>
+                </main>
+                <footer class="app-footer"><p>© 2024 Pace Technologies Inc.</p></footer>
+            </div>`;
+        }
+        
+        // Caching
+        const CACHE_NAME = 'docflow-v1';
+        async function cacheResource(name, content) {
+            try { const cache = await caches.open(CACHE_NAME); await cache.put(`/res/${name}`, new Response(content)); } catch(e) {}
+        }
+        async function getCachedResource(name) {
+            try { const cache = await caches.open(CACHE_NAME); const r = await cache.match(`/res/${name}`); return r ? await r.text() : null; } catch(e) { return null; }
+        }
+        async function loadFromCache() {
+            updateProgress(10, 'Loading offline...');
+            const names = ['styles.css','formConfigs.json','indexedDB.js','sync.js','pdfGenerator.js','formBuilder.js','app.js'];
+            const loaded = {};
+            for (const n of names) { const c = await getCachedResource(n); if (c) loaded[n] = { content: c, type: n.split('.').pop() }; }
+            if (Object.keys(loaded).length < 4) { showError('Cannot load offline. Connect for first use.'); return; }
+            await initApp(loaded);
+            document.getElementById('loader-container').style.display = 'none';
+            document.getElementById('app-container').style.display = 'block';
+        }
+        
+        // UI Helpers
+        function showLoadingState() { document.getElementById('login-section').classList.add('hidden'); document.getElementById('loading-section').classList.remove('hidden'); }
+        function updateProgress(pct, txt) { document.getElementById('progress-fill').style.width = pct+'%'; document.getElementById('status-text').textContent = txt; }
+        function showError(msg) { const e = document.getElementById('error-message'); e.textContent = msg; e.style.display = 'block'; }
+        function updateOnlineStatus() { document.getElementById('offline-notice').classList.toggle('hidden', navigator.onLine); }
+        function toggleUserMenu() { document.getElementById('user-menu').classList.toggle('hidden'); }
+        async function logout() { await msalInstance.logoutRedirect(); }
+        
+        // Service Worker
+        if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW failed:', e))); }
+    </script>
+</body>
+</html>
