@@ -177,18 +177,29 @@
         // Get SharePoint-specific token
         async function getSharePointToken() {
             if (!currentAccount) throw new Error('No user');
-            const spScopes = { scopes: [`${CONFIG.sharePointSiteUrl.split('/sites/')[0]}/.default`], account: currentAccount };
+            // Request token for SharePoint specifically
+            const spScopes = { 
+                scopes: ['https://pacetechnologiesinc.sharepoint.com/.default'], 
+                account: currentAccount 
+            };
             try {
                 const response = await msalInstance.acquireTokenSilent(spScopes);
                 return response.accessToken;
             } catch (e) { 
-                await msalInstance.acquireTokenRedirect(spScopes); 
+                // If silent fails, try interactive
+                try {
+                    const response = await msalInstance.acquireTokenPopup(spScopes);
+                    return response.accessToken;
+                } catch (e2) {
+                    console.error('SharePoint token error:', e2);
+                    throw e2;
+                }
             }
         }
         
         async function loadAppFromSharePoint() {
-            updateProgress(10, 'Connecting to SharePoint...');
-            const token = await getSharePointToken();
+            updateProgress(10, 'Loading resources...');
+            // Load resources from GitHub Pages (same origin) instead of SharePoint
             
             const resources = [
                 { name: 'styles.css', type: 'css' },
@@ -207,7 +218,7 @@
             for (const res of resources) {
                 updateProgress(progress, `Loading ${res.name}...`);
                 try {
-                    const content = await fetchSharePointFile(token, res.name);
+                    const content = await fetchLocalFile(res.name);
                     loaded[res.name] = { content, type: res.type };
                     await cacheResource(res.name, content);
                 } catch (e) {
@@ -238,6 +249,13 @@
                     'Accept': 'application/json;odata=verbose'
                 } 
             });
+            if (!response.ok) throw new Error(`${response.status} loading ${filename}`);
+            return await response.text();
+        }
+        
+        async function fetchLocalFile(filename) {
+            // Load from same origin (GitHub Pages)
+            const response = await fetch(filename);
             if (!response.ok) throw new Error(`${response.status} loading ${filename}`);
             return await response.text();
         }

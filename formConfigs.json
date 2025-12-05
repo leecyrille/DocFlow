@@ -1,0 +1,230 @@
+{
+    "version": "1.0.0",
+    "lastUpdated": "2024-12-04",
+    "formTypes": {
+        "flra": {
+            "id": "flra",
+            "name": "Field Level Risk Assessment",
+            "shortName": "FLRA",
+            "formNumber": "HSF-001-14",
+            "revision": "Rev 4",
+            "folderName": "FLRA",
+            "sharePointListName": "FLRA_Submissions",
+            "headerFields": [
+                { "id": "client", "label": "Client", "type": "text", "required": true },
+                { "id": "jobFileNumber", "label": "Job File #", "type": "text", "required": false },
+                { "id": "site", "label": "Site", "type": "text", "required": true },
+                { "id": "assessmentDate", "label": "Date", "type": "date", "required": true },
+                { "id": "taskLocation", "label": "Task Location", "type": "text", "required": true },
+                { "id": "leadHand", "label": "Lead Hand", "type": "text", "required": true },
+                { "id": "scopeOfWork", "label": "Scope of Work", "type": "textarea", "required": true },
+                { "id": "emergencyResponsePlan", "label": "(ERP) Emergency Response Plan", "type": "textarea", "required": true },
+                { "id": "supervisorInitials", "label": "Supervisor Initials", "type": "text", "required": false, "maxLength": 5 }
+            ],
+            "checklists": {
+                "potentialHazards": {
+                    "title": "Potential Hazards / Risk Factors",
+                    "items": [
+                        "Slip / Trip / Fall Potential",
+                        "Inadequate Lighting",
+                        "Pinch Points / Sharp Objects",
+                        "Toxic Gases / Vapors",
+                        "Ambient Conditions (Extreme Temp)",
+                        "Confined Space Entry",
+                        "Working Alone",
+                        "Workers in Area",
+                        "Traffic / Mobile Equipment",
+                        "Falling Items / Material",
+                        "Ergonomic Hazards",
+                        { "label": "Other", "hasTextField": true }
+                    ],
+                    "responseType": "na-yes-no"
+                },
+                "emergencyPrep": {
+                    "title": "Emergency Preparation",
+                    "items": [
+                        "Emergency PH #",
+                        "Muster Point Located",
+                        "Evacuation Route",
+                        "First Aid Kit(s)",
+                        "Fire Extinguishers",
+                        "Client Contact Name",
+                        "Client Contact #",
+                        "Pace Contact Name",
+                        "Pace Contact #",
+                        "AED Located",
+                        "ERP Reviewed",
+                        { "label": "Other", "hasTextField": true }
+                    ],
+                    "responseType": "na-yes-no"
+                },
+                "electricalHazards": {
+                    "title": "Electrical Hazards",
+                    "items": [
+                        "Electric Shock",
+                        "Arc Flash",
+                        "Arc Flash Study Done",
+                        "Single Line Diagram",
+                        "Isolation Established",
+                        "Energized Work",
+                        "De-Energized Work",
+                        "Lockout Required",
+                        "Overhead Lines",
+                        { "label": "Other", "hasTextField": true }
+                    ],
+                    "responseType": "na-yes-no"
+                },
+                "permits": {
+                    "title": "Permits Required",
+                    "items": [
+                        "Safe Work Permit",
+                        "Hot Work Permit",
+                        "Confined Space Permit",
+                        "Excavation Permit",
+                        "Switching Permit",
+                        "Energized Work Permit",
+                        { "label": "Other", "hasTextField": true }
+                    ],
+                    "responseType": "na-yes-no"
+                },
+                "environmentalHazards": {
+                    "title": "Environmental Hazards",
+                    "items": [
+                        "Weather Conditions",
+                        "Dust / Mist / Fumes",
+                        "Spill Potential",
+                        "UV Exposure",
+                        "Holes / Trenches",
+                        "Water",
+                        "Wildlife",
+                        { "label": "Other", "hasTextField": true }
+                    ],
+                    "responseType": "na-yes-no"
+                },
+                "ppe": {
+                    "title": "PPE Requirements",
+                    "items": [
+                        "Hard Hat",
+                        "Safety Glasses",
+                        "Face Shield",
+                        "FR Clothing",
+                        "Safety Boots",
+                        "Hearing Protection",
+                        "Rubber Gloves",
+                        "Work Gloves",
+                        "Gas Monitor",
+                        "Arc Flash PPE",
+                        "Respirator",
+                        "Chemical Goggles",
+                        "PPE Inspected"
+                    ],
+                    "responseType": "na-yes-no"
+                },
+                "heightsHazards": {
+                    "title": "Working from Heights",
+                    "items": [
+                        "Harness/Lanyard/SRL",
+                        "100% Tie Off",
+                        "Tie Off Points OK",
+                        "Rescue Team",
+                        "Aerial Lift",
+                        "Ladders",
+                        "Scaffolds",
+                        "Equipment Inspected",
+                        { "label": "Other", "hasTextField": true }
+                    ],
+                    "responseType": "na-yes-no",
+                    "additionalFields": [
+                        { "id": "fallProtectionHeight", "label": "Fall Protection Above", "type": "number" },
+                        { "id": "fallProtectionUnit", "label": "Unit", "type": "select", "options": ["Feet", "Meters"] }
+                    ]
+                }
+            },
+            "hasMitigations": true,
+            "mitigationRows": 10,
+            "hasWorkerSignatures": true,
+            "workerSignatureRows": 10,
+            "supervisorSignatures": [
+                { "id": "paceSupervisorName", "label": "Pace Supervisor Name" },
+                { "id": "paceSupervisorSignature", "label": "Pace Supervisor Signature" },
+                { "id": "clientRepName", "label": "Client Rep Name" },
+                { "id": "clientRepSignature", "label": "Client Rep Signature" }
+            ]
+        },
+        "manlift": {
+            "id": "manlift",
+            "name": "Manlift Inspection Checklist",
+            "shortName": "Manlift",
+            "formNumber": "HSF-20-001",
+            "revision": "",
+            "folderName": "Manlift_Inspection",
+            "sharePointListName": "Manlift_Inspections",
+            "headerFields": [
+                { "id": "inspectionDate", "label": "Date", "type": "date", "required": true },
+                { "id": "manliftNumber", "label": "Manlift #", "type": "text", "required": true },
+                { "id": "hourMeter", "label": "Hour Meter", "type": "text", "required": true }
+            ],
+            "checklists": {
+                "basicGroundInspection": {
+                    "title": "Basic Inspection (from ground)",
+                    "items": [
+                        "Manufacturer's manual (in place)",
+                        "Platform/railing (bent, worn, damaged)",
+                        "Tires (worn, air, missing bolts)",
+                        "Fire extinguisher (charged, sealed)",
+                        "Horn (operational, loud)",
+                        "Restraining device (good repair)",
+                        "Hydraulic fluid (platform down)",
+                        "Hoses (good repair)"
+                    ],
+                    "responseType": "ok-notok-na",
+                    "hasExplanation": true
+                },
+                "internalCombustion": {
+                    "title": "Internal Combustion Equipment",
+                    "items": [
+                        "Propane tank (date, leak, secure)",
+                        "Gas cap (secure)",
+                        "Engine oil (check engine off)",
+                        "Radiator (don't check if hot)",
+                        "Hydraulic fluid (platform down)",
+                        "Hoses and belts (good repair)",
+                        "Battery (connections, levels)"
+                    ],
+                    "responseType": "ok-notok-na",
+                    "hasExplanation": true
+                },
+                "batteryPowered": {
+                    "title": "Battery Powered Equipment",
+                    "items": [
+                        "Cables and connections (tight)",
+                        "Cell levels (above plates)",
+                        "Plugging control (smooth)"
+                    ],
+                    "responseType": "ok-notok-na",
+                    "hasExplanation": true
+                },
+                "basicManliftInspection": {
+                    "title": "Basic Inspection (on manlift)",
+                    "items": [
+                        "Brake pin & linkage",
+                        "Brake (firm, stops smooth)",
+                        "Steering (smooth operation)",
+                        "Leaks (under manlift)",
+                        "Hydraulic controls (smooth)",
+                        "Hydraulic functions (up/down)",
+                        "Directional controls (smooth)"
+                    ],
+                    "responseType": "ok-notok-na",
+                    "hasExplanation": true
+                }
+            },
+            "hasMitigations": false,
+            "hasWorkerSignatures": false,
+            "supervisorSignatures": [
+                { "id": "inspectedBy", "label": "Inspected by" },
+                { "id": "supervisor", "label": "Supervisor" }
+            ]
+        }
+    }
+}
