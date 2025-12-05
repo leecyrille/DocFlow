@@ -106,7 +106,8 @@
             cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
         };
         
-        const loginScopes = { scopes: ['User.Read', 'Sites.Read.All', 'Files.Read.All'] };
+        // Only request User.Read - we'll use SharePoint REST API directly
+        const loginScopes = { scopes: ['User.Read'] };
         
         let msalInstance = null, currentAccount = null, accessToken = null;
         
@@ -173,9 +174,21 @@
             } catch (e) { await msalInstance.acquireTokenRedirect(loginScopes); }
         }
         
+        // Get SharePoint-specific token
+        async function getSharePointToken() {
+            if (!currentAccount) throw new Error('No user');
+            const spScopes = { scopes: [`${CONFIG.sharePointSiteUrl.split('/sites/')[0]}/.default`], account: currentAccount };
+            try {
+                const response = await msalInstance.acquireTokenSilent(spScopes);
+                return response.accessToken;
+            } catch (e) { 
+                await msalInstance.acquireTokenRedirect(spScopes); 
+            }
+        }
+        
         async function loadAppFromSharePoint() {
             updateProgress(10, 'Connecting to SharePoint...');
-            const token = await getAccessToken();
+            const token = await getSharePointToken();
             
             const resources = [
                 { name: 'styles.css', type: 'css' },
@@ -216,11 +229,15 @@
         }
         
         async function fetchSharePointFile(token, filename) {
-            const hostname = new URL(CONFIG.sharePointSiteUrl).hostname;
-            const sitePath = new URL(CONFIG.sharePointSiteUrl).pathname;
-            const graphUrl = `https://graph.microsoft.com/v1.0/sites/${hostname}:${sitePath}:/drive/root:/AppResources/${filename}:/content`;
+            // Use SharePoint REST API directly instead of Graph API
+            const spRestUrl = `${CONFIG.sharePointSiteUrl}/_api/web/GetFolderByServerRelativeUrl('/sites/DocFlow/AppResources')/Files('${filename}')/$value`;
             
-            const response = await fetch(graphUrl, { headers: { 'Authorization': `Bearer ${token}` } });
+            const response = await fetch(spRestUrl, { 
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json;odata=verbose'
+                } 
+            });
             if (!response.ok) throw new Error(`${response.status} loading ${filename}`);
             return await response.text();
         }
