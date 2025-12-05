@@ -96,6 +96,13 @@
     function collectData() {
         const cfg = formConfigs.formTypes[currentFormType];
         const data = { formType: currentFormType };
+        
+        // Preserve localId if editing existing form
+        const localIdEl = document.getElementById('form-local-id');
+        if (localIdEl && localIdEl.value) {
+            data.localId = parseInt(localIdEl.value, 10);
+        }
+        
         cfg.headerFields.forEach(f => { data[f.id] = document.getElementById(f.id)?.value || ''; });
         data.checklists = {};
         Object.keys(cfg.checklists).forEach(key => {
