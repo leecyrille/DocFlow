@@ -39,9 +39,16 @@
                     // Extract signature images for separate upload
                     const signatures = extractSignatures(form);
                     
-                    // Get PDF upload path info
+                    // Get PDF upload path info with sequence number
                     const formCfg = window.DocFlowApp?.getFormConfig?.(form.formType);
-                    const pdfInfo = window.DocFlowPDF?.getUploadPath?.(form.formType, form, formCfg || {}) || {};
+                    
+                    // Get next sequence number for this form on this day
+                    let sequenceNumber = 1;
+                    if (window.DocFlowPDF?.getNextSequenceNumber) {
+                        sequenceNumber = await window.DocFlowPDF.getNextSequenceNumber(form.formType, form, formCfg || {}, config);
+                    }
+                    
+                    const pdfInfo = window.DocFlowPDF?.getUploadPath?.(form.formType, form, formCfg || {}, sequenceNumber) || {};
                     
                     const res = await fetch(`${config.apiEndpoint}/sync-form`, {
                         method: 'POST',

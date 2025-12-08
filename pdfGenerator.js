@@ -282,27 +282,44 @@
     };
     
     // Generate PDF filename and path info
-    DocFlowPDF.getFileInfo = function(formType, data, cfg) {
+    // Format: {FormShortName}_{YYYYMMDD}_{JobNumber}_{SequenceNumber}.pdf
+    // Example: FLRA_20251205_ABC123_01.pdf
+    DocFlowPDF.getFileInfo = function(formType, data, cfg, sequenceNumber = 1) {
         const dateField = formType === 'flra' ? 'assessmentDate' : 'inspectionDate';
         const dateStr = (data[dateField] || new Date().toISOString().split('T')[0]).replace(/-/g, '');
         const year = dateStr.substring(0, 4);
-        const jobNum = (data.jobFileNumber || data.manliftNumber || 'NOJOB').replace(/[^a-zA-Z0-9]/g, '');
-        const filename = `${dateStr}_${jobNum}_${cfg.shortName || formType}.pdf`;
+        const shortName = cfg.shortName || formType.toUpperCase();
+        const jobNum = (data.jobFileNumber || data.manliftNumber || 'NOJOB').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        
+        // Sequence number padded to 2 digits (01, 02, 03, etc.)
+        const seqNum = String(sequenceNumber).padStart(2, '0');
+        
+        // Filename format: FLRA_20251205_ABC123_01.pdf
+        const filename = `${shortName}_${dateStr}_${jobNum}_${seqNum}.pdf`;
         
         // Folder structure: SafetyFormPDFs/{FormType}/{Year}/
         const folderPath = `${cfg.folderName || formType.toUpperCase()}/${year}`;
+        
+        // Pattern for finding existing files (for sequence number calculation)
+        const filePattern = `${shortName}_${dateStr}_${jobNum}_`;
         
         return {
             filename,
             folderPath,
             fullPath: `${folderPath}/${filename}`,
-            library: CONFIG?.libraries?.safetyFormPDFs || 'SafetyFormPDFs'
+            library: CONFIG?.libraries?.safetyFormPDFs || 'SafetyFormPDFs',
+            filePattern,
+            sequenceNumber,
+            shortName,
+            dateStr,
+            jobNum,
+            year
         };
     };
     
     // Get the SharePoint path where PDFs should be uploaded
-    DocFlowPDF.getUploadPath = function(formType, data, cfg) {
-        const fileInfo = DocFlowPDF.getFileInfo(formType, data, cfg);
+    DocFlowPDF.getUploadPath = function(formType, data, cfg, sequenceNumber = 1) {
+        const fileInfo = DocFlowPDF.getFileInfo(formType, data, cfg, sequenceNumber);
         const siteUrl = CONFIG?.sharePointSiteUrl || 'https://pacetechnologiesinc.sharepoint.com/sites/DocFlow';
         
         return {
@@ -311,6 +328,54 @@
             serverRelativePath: `/sites/DocFlow/${fileInfo.library}/${fileInfo.folderPath}`,
             fullUrl: `${siteUrl}/${fileInfo.library}/${fileInfo.fullPath}`
         };
+    };
+    
+    // Calculate next sequence number by checking existing files in SharePoint
+    DocFlowPDF.getNextSequenceNumber = async function(token, formType, data, cfg) {
+        const fileInfo = DocFlowPDF.getFileInfo(formType, data, cfg, 1);
+        const siteUrl = CONFIG?.sharePointSiteUrl || 'https://pacetechnologiesinc.sharepoint.com/sites/DocFlow';
+        const folderPath = `/sites/DocFlow/${fileInfo.library}/${fileInfo.folderPath}`;
+        
+        try {
+            // Query SharePoint for files matching the pattern
+            const apiUrl = `${siteUrl}/_api/web/GetFolderByServerRelativeUrl('${folderPath}')/Files?$filter=startswith(Name,'${fileInfo.filePattern}')&$select=Name`;
+            
+            const response = await fetch(apiUrl, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json;odata=verbose'
+                }
+            });
+            
+            if (!response.ok) {
+                // Folder might not exist yet, start at 01
+                return 1;
+            }
+            
+            const result = await response.json();
+            const files = result.d?.results || [];
+            
+            if (files.length === 0) {
+                return 1;
+            }
+            
+            // Find the highest sequence number
+            let maxSeq = 0;
+            const pattern = new RegExp(`${fileInfo.filePattern}(\\d{2})\\.pdf$`, 'i');
+            
+            files.forEach(file => {
+                const match = file.Name.match(pattern);
+                if (match) {
+                    const seq = parseInt(match[1], 10);
+                    if (seq > maxSeq) maxSeq = seq;
+                }
+            });
+            
+            return maxSeq + 1;
+        } catch (e) {
+            console.warn('Error checking existing files:', e);
+            return 1; // Default to 01 if error
+        }
     };
     
     function blobToBase64(blob) {
